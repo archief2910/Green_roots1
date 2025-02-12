@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Zero-to-Hero",
+  title: "Green Roots",
   description: "AI-powered waste management platform",
 }

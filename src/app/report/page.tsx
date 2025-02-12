@@ -8,7 +8,7 @@ import { Libraries } from '@react-google-maps/api';
 import { createUser, getUserByEmail, createReport, getRecentReports } from '@/utils/db/actions';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast'
-
+import Map from "@/components/Map";
 const geminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -17,17 +17,18 @@ const libraries: Libraries = ['places'];
 export default function ReportPage() {
   const [user, setUser] = useState<{ id: number; email: string; name: string } | null>(null);
   const router = useRouter();
-
   const [reports, setReports] = useState<Array<{
     id: number;
-    location: string;
     wasteType: string;
+    longitude: string,
+    latitude: string,
     amount: string;
     createdAt: string;
   }>>([]);
 
   const [newReport, setNewReport] = useState({
-    location: '',
+    longitude: '',
+    latitude: '',
     type: '',
     amount: '',
   })
@@ -94,16 +95,15 @@ export default function ReportPage() {
   };
 
   const handleVerify = async () => {
-    if (!file) return
-
-    setVerificationStatus('verifying')
-    
+    if (!file) return;
+    setVerificationStatus('verifying');
+  
     try {
       const genAI = new GoogleGenerativeAI(geminiApiKey!);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+  
       const base64Data = await readFileAsBase64(file);
-
+  
       const imageParts = [
         {
           inlineData: {
@@ -112,7 +112,7 @@ export default function ReportPage() {
           },
         },
       ];
-
+  
       const prompt = `You are an expert in waste management and recycling. Analyze this image and provide:
         1. The type of waste (e.g., plastic, paper, glass, metal, organic)
         2. An estimate of the quantity or amount (in kg or liters)
@@ -124,20 +124,29 @@ export default function ReportPage() {
           "quantity": "estimated quantity with unit",
           "confidence": confidence level as a number between 0 and 1
         }`;
-
+  
       const result = await model.generateContent([prompt, ...imageParts]);
       const response = await result.response;
-      const text = response.text();
-      
+      const text = await response.text();
+  
+      console.log("Raw text response:", text);
+  
       try {
-        const parsedResult = JSON.parse(text);
+        // Sanitize and parse JSON response
+        const sanitizedText = text.trim().replace(/^[^\[{]*|[^\]}]*$/g, '');
+        const parsedResult = JSON.parse(sanitizedText);
+  
+        console.log("Parsed JSON:", parsedResult);
+  
         if (parsedResult.wasteType && parsedResult.quantity && parsedResult.confidence) {
           setVerificationResult(parsedResult);
           setVerificationStatus('success');
           setNewReport({
             ...newReport,
             type: parsedResult.wasteType,
-            amount: parsedResult.quantity
+            amount: parsedResult.quantity,
+            // latitude: parsedResult.latitude,
+            // longitude: parsedResult.longitude,
           });
         } else {
           console.error('Invalid verification result:', parsedResult);
@@ -151,7 +160,8 @@ export default function ReportPage() {
       console.error('Error verifying waste:', error);
       setVerificationStatus('failure');
     }
-  }
+  };
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,23 +174,22 @@ export default function ReportPage() {
     try {
       const report = await createReport(
         user.id,
-        newReport.location,
+        newReport.latitude,
+        newReport.longitude,
         newReport.type,
         newReport.amount,
-        preview || undefined,
-        verificationResult ? JSON.stringify(verificationResult) : undefined
       ) as any;
-      
       const formattedReport = {
         id: report.id,
-        location: report.location,
         wasteType: report.wasteType,
         amount: report.amount,
+        latitude: report.latitude,
+        longitude: report.longitude,
         createdAt: report.createdAt.toISOString().split('T')[0]
       };
-      
+      console.log(formattedReport)
       setReports([formattedReport, ...reports]);
-      setNewReport({ location: '', type: '', amount: '' });
+      setNewReport({ type: "", amount: '', latitude: '', longitude: '' });
       setFile(null);
       setPreview(null);
       setVerificationStatus('idle');
@@ -205,13 +214,12 @@ export default function ReportPage() {
           user = await createUser(email, 'Anonymous User');
         }
         setUser(user);
-        
         const recentReports = await getRecentReports();
         const formattedReports = recentReports.map(report => ({
           ...report,
           createdAt: report.createdAt.toISOString().split('T')[0]
         }));
-        setReports(formattedReports);
+        // setReports(formattedReports);
       } else {
         router.push('/login'); 
       }
@@ -222,7 +230,6 @@ export default function ReportPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <h1 className="text-3xl font-semibold mb-6 text-gray-800">Report waste</h1>
-      
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-lg mb-12">
         <div className="mb-8">
           <label htmlFor="waste-image" className="block text-lg font-medium text-gray-700 mb-2">
@@ -281,38 +288,33 @@ export default function ReportPage() {
             </div>
           </div>
         )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+
           <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-            {isLoaded ? (
-              <StandaloneSearchBox
-                onLoad={onLoad}
-                onPlacesChanged={onPlacesChanged}
-              >
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={newReport.location}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300"
-                  placeholder="Enter waste location"
-                />
-              </StandaloneSearchBox>
-            ) : (
-              <input
-                type="text"
-                id="location"
-                name="location"
-                value={newReport.location}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300"
-                placeholder="Enter waste location"
-              />
-            )}
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+            <input
+              type="text"
+              id="latitude"
+              name="latitude"
+              value={newReport.latitude}
+              onChange={handleInputChange}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-gray-100"
+              placeholder="Latitude"
+            />
+          </div>
+          <div>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+            <input
+              type="text"
+              id="longitude"
+              name="longitude"
+              value={newReport.longitude}
+              onChange={handleInputChange}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-gray-100"
+              placeholder="Longitude"
+            />
           </div>
           <div>
             <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Waste Type</label>
@@ -374,7 +376,7 @@ export default function ReportPage() {
                 <tr key={report.id} className="hover:bg-gray-50 transition-colors duration-200">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <MapPin className="inline-block w-4 h-4 mr-2 text-green-500" />
-                    {report.location}
+                    {report.latitude}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{report.wasteType}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{report.amount}</td>
@@ -385,6 +387,7 @@ export default function ReportPage() {
           </table>
         </div>
       </div>
+     
     </div>
   )
 }

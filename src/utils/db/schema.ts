@@ -1,4 +1,4 @@
-import { integer, varchar, pgTable, serial, text, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { integer, decimal, varchar, pgTable, serial, text, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 
 // Users table
 export const Users = pgTable("users", {
@@ -12,7 +12,8 @@ export const Users = pgTable("users", {
 export const Reports = pgTable("reports", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => Users.id).notNull(),
-  location: text("location").notNull(),
+  latitude: varchar("latitude", { length: 255 }).notNull(),
+  longitude: varchar("longitude", { length: 255 }).notNull(),
   wasteType: varchar("waste_type", { length: 255 }).notNull(),
   amount: varchar("amount", { length: 255 }).notNull(),
   imageUrl: text("image_url"),
@@ -42,10 +43,14 @@ export const CollectedWastes = pgTable("collected_wastes", {
   reportId: integer("report_id").references(() => Reports.id).notNull(),
   collectorId: integer("collector_id").references(() => Users.id).notNull(),
   collectionDate: timestamp("collection_date").notNull(),
+  latitude: integer("latitude").notNull(),
+  longitude: integer("longitude").notNull(),
+  hazard_level: integer("hazard_level").notNull(),
   status: varchar("status", { length: 20 }).notNull().default("collected"),
 });
 
 // Notifications table
+
 export const Notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => Users.id).notNull(),

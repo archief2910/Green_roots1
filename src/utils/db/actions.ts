@@ -12,6 +12,7 @@ export async function createUser(email: string, name: string) {
   }
 }
 
+
 export async function getUserByEmail(email: string) {
   try {
     const [user] = await db.select().from(Users).where(eq(Users.email, email)).execute();
@@ -24,7 +25,8 @@ export async function getUserByEmail(email: string) {
 
 export async function createReport(
   userId: number,
-  location: string,
+  latitude: string,
+  longitude: string,
   wasteType: string,
   amount: string,
   imageUrl?: string,
@@ -36,7 +38,8 @@ export async function createReport(
       .insert(Reports)
       .values({
         userId,
-        location,
+        latitude,
+        longitude,
         wasteType,
         amount,
         imageUrl,
@@ -45,15 +48,15 @@ export async function createReport(
       })
       .returning()
       .execute();
-
-    // Award 10 points for reporting waste
+      console.log(report);
+    // Award 10 points for reporting wasthgchgcdhchce
     const pointsEarned = 10;
     await updateRewardPoints(userId, pointsEarned);
 
-    // Create a transaction for the earned points
+    // // Create a transaction for the earned points
     await createTransaction(userId, 'earned_report', pointsEarned, 'Points earned for reporting waste');
 
-    // Create a notification for the user
+    // // Create a notification for the user
     await createNotification(
       userId,
       `You've earned ${pointsEarned} points for reporting waste!`,
@@ -70,6 +73,16 @@ export async function createReport(
 export async function getReportsByUserId(userId: number) {
   try {
     const reports = await db.select().from(Reports).where(eq(Reports.userId, userId)).execute();
+    return reports;
+  } catch (error) {
+    console.error("Error fetching reports:", error);
+    return [];
+  }
+}
+
+export async function getAllReports() {
+  try {
+    const reports = await db.select().from(Reports).execute();
     return reports;
   } catch (error) {
     console.error("Error fetching reports:", error);
@@ -115,7 +128,13 @@ export async function updateRewardPoints(userId: number, pointsToAdd: number) {
   }
 }
 
-export async function createCollectedWaste(reportId: number, collectorId: number, notes?: string) {
+export async function createCollectedWaste(
+  reportId: number,
+  collectorId: number,
+  latitude: number,
+  longitude: number,
+  hazard_level: number,
+  notes?: string) {
   try {
     const [collectedWaste] = await db
       .insert(CollectedWastes)
@@ -123,6 +142,9 @@ export async function createCollectedWaste(reportId: number, collectorId: number
         reportId,
         collectorId,
         collectionDate: new Date(),
+        latitude,
+        longitude,
+        hazard_level
       })
       .returning()
       .execute();
@@ -133,14 +155,15 @@ export async function createCollectedWaste(reportId: number, collectorId: number
   }
 }
 
-export async function getCollectedWastesByCollector(collectorId: number) {
+export async function getCollectedWastes() {
   try {
-    return await db.select().from(CollectedWastes).where(eq(CollectedWastes.collectorId, collectorId)).execute();
+    return await db.select().from(CollectedWastes).execute();
   } catch (error) {
     console.error("Error fetching collected wastes:", error);
-    return [];
+    return null;
   }
 }
+
 
 export async function createNotification(userId: number, message: string, type: string) {
   try {
@@ -222,7 +245,8 @@ export async function getWasteCollectionTasks(limit: number = 20) {
     const tasks = await db
       .select({
         id: Reports.id,
-        location: Reports.location,
+        latitude: Reports.latitude,
+        longitude: Reports.longitude,
         wasteType: Reports.wasteType,
         amount: Reports.amount,
         status: Reports.status,
@@ -268,24 +292,24 @@ export async function saveReward(userId: number, amount: number) {
   }
 }
 
-export async function saveCollectedWaste(reportId: number, collectorId: number, verificationResult: any) {
-  try {
-    const [collectedWaste] = await db
-      .insert(CollectedWastes)
-      .values({
-        reportId,
-        collectorId,
-        collectionDate: new Date(),
-        status: 'verified',
-      })
-      .returning()
-      .execute();
-    return collectedWaste;
-  } catch (error) {
-    console.error("Error saving collected waste:", error);
-    throw error;
-  }
-}
+// export async function saveCollectedWaste(reportId: number, collectorId: number, verificationResult: any) {
+//   try {
+//     const [collectedWaste] = await db
+//       .insert(CollectedWastes)
+//       .values({
+//         reportId,
+//         collectorId,
+//         collectionDate: new Date(),
+//         status: 'verified',
+//       })
+//       .returning()
+//       .execute();
+//     return collectedWaste;
+//   } catch (error) {
+//     console.error("Error saving collected waste:", error);
+//     throw error;
+//   }
+// }
 
 export async function updateTaskStatus(reportId: number, newStatus: string, collectorId?: number) {
   try {

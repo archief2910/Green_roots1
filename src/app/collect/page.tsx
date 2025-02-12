@@ -148,7 +148,6 @@ export default function CollectPage() {
       const result = await model.generateContent([prompt, ...imageParts])
       const response = await result.response
       const text = response.text()
-      
       try {
         const parsedResult = JSON.parse(text)
         setVerificationResult({
@@ -157,11 +156,10 @@ export default function CollectPage() {
           confidence: parsedResult.confidence
         })
         setVerificationStatus('success')
-        
         if (parsedResult.wasteTypeMatch && parsedResult.quantityMatch && parsedResult.confidence > 0.7) {
           await handleStatusChange(selectedTask.id, 'verified')
           const earnedReward = Math.floor(Math.random() * 50) + 10 // Random reward between 10 and 59
-          
+
           // Save the reward
           await saveReward(user.id, earnedReward)
 
@@ -180,19 +178,18 @@ export default function CollectPage() {
           })
         }
       } catch (error) {
-        console.log(error);
-        
         console.error('Failed to parse JSON response:', text)
         setVerificationStatus('failure')
       }
-    } catch (error) {
+    } catch (error) { 
       console.error('Error verifying waste:', error)
       setVerificationStatus('failure')
     }
   }
 
   const filteredTasks = tasks.filter(task =>
-    task.location.toLowerCase().includes(searchTerm.toLowerCase())
+    null
+    // task.longitude.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const pageCount = Math.ceil(filteredTasks.length / ITEMS_PER_PAGE)

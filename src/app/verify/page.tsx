@@ -11,7 +11,8 @@ export default function VerifyWastePage() {
     wasteType: string;
     quantity: string;
     confidence: number;
-  } | null>(null)
+  } | null>(null);
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

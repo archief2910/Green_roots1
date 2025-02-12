@@ -5,6 +5,7 @@ import { MapPin, Trash, Coins, Medal, Settings, Home, Car } from "lucide-react"
 
 const sidebarItems = [
   { href: "/", icon: Home, label: "Home" },
+  { href: "/viewmap", icon: MapPin, label: "View Map" },
   { href: "/report", icon: MapPin, label: "Report Waste" },
   { href: "/collect", icon: Trash, label: "Collect Waste" },
   { href: "/rewards", icon: Coins, label: "Rewards" },
